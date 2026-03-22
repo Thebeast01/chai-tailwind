@@ -1,22 +1,1086 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>chai-tailwind</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chai Tailwind — Runtime CSS Engine</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Fira+Code:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0b0a07;
+      --surface: #141309;
+      --surface-2: #1c1a11;
+      --amber: #f59e0b;
+      --amber-light: #fcd34d;
+      --amber-dim: #92400e;
+      --orange: #f97316;
+      --cream: #fef3c7;
+      --text: #fef9ee;
+      --text-muted: #a89060;
+      --border: rgba(245,158,11,0.15);
+      --border-hover: rgba(245,158,11,0.4);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 300;
+      overflow-x: hidden;
+    }
+
+    /* ── Noise texture overlay ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.035'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* ── Nav ── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.25rem 4rem;
+      backdrop-filter: blur(12px);
+      background: rgba(11,10,7,0.7);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-logo {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 1.25rem;
+      color: var(--amber);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      text-decoration: none;
+    }
+
+    .nav-logo .emoji { font-size: 1.4rem; }
+
+    nav ul {
+      list-style: none;
+      display: flex;
+      gap: 2.5rem;
+    }
+
+    nav a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 400;
+      transition: color 0.2s;
+    }
+
+    nav a:hover { color: var(--amber); }
+
+    .nav-cta {
+      background: var(--amber);
+      color: #000 !important;
+      padding: 0.45rem 1.1rem;
+      border-radius: 6px;
+      font-weight: 500 !important;
+    }
+
+    .nav-cta:hover { background: var(--amber-light) !important; color: #000 !important; }
+
+    /* ── Hero ── */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 8rem 2rem 4rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Radial glow */
+    .hero::after {
+      content: '';
+      position: absolute;
+      width: 700px; height: 700px;
+      background: radial-gradient(circle, rgba(245,158,11,0.12) 0%, transparent 70%);
+      top: 50%; left: 50%;
+      transform: translate(-50%, -60%);
+      pointer-events: none;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(245,158,11,0.08);
+      border: 1px solid rgba(245,158,11,0.25);
+      color: var(--amber);
+      font-family: 'Fira Code', monospace;
+      font-size: 0.8rem;
+      padding: 0.35rem 0.9rem;
+      border-radius: 99px;
+      margin-bottom: 2.5rem;
+      animation: fadeDown 0.6s ease both;
+    }
+
+    .hero h1 {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: clamp(3.2rem, 8vw, 7rem);
+      line-height: 1;
+      letter-spacing: -0.03em;
+      animation: fadeUp 0.7s 0.1s ease both;
+    }
+
+    .hero h1 span {
+      background: linear-gradient(120deg, var(--amber), var(--orange), var(--amber-light));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-sub {
+      margin-top: 1.5rem;
+      font-size: 1.15rem;
+      color: var(--text-muted);
+      max-width: 520px;
+      line-height: 1.7;
+      animation: fadeUp 0.7s 0.2s ease both;
+    }
+
+    .hero-actions {
+      margin-top: 2.5rem;
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      animation: fadeUp 0.7s 0.3s ease both;
+    }
+
+    .btn-primary {
+      background: var(--amber);
+      color: #000;
+      font-weight: 500;
+      font-size: 0.95rem;
+      padding: 0.75rem 1.75rem;
+      border-radius: 8px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: background 0.2s, transform 0.2s;
+    }
+
+    .btn-primary:hover { background: var(--amber-light); transform: translateY(-2px); }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      padding: 0.75rem 1.75rem;
+      border-radius: 8px;
+      border: 1px solid var(--border-hover);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: border-color 0.2s, color 0.2s, transform 0.2s;
+    }
+
+    .btn-ghost:hover { border-color: var(--amber); color: var(--amber); transform: translateY(-2px); }
+
+    .hero-code {
+      margin-top: 3.5rem;
+      animation: fadeUp 0.7s 0.4s ease both;
+    }
+
+    .code-block {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1.75rem;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.88rem;
+      color: var(--amber-light);
+      text-align: left;
+      display: inline-block;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .code-block::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(to right, var(--amber), var(--orange));
+    }
+
+    .code-block .dim { color: var(--text-muted); }
+    .code-block .tag { color: #f87171; }
+    .code-block .attr { color: #60a5fa; }
+    .code-block .val { color: var(--amber-light); }
+
+    /* ── Floating chips ── */
+    .floating-chips {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .chip {
+      position: absolute;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.72rem;
+      background: rgba(245,158,11,0.06);
+      border: 1px solid rgba(245,158,11,0.12);
+      color: rgba(245,158,11,0.4);
+      padding: 0.25rem 0.6rem;
+      border-radius: 99px;
+      white-space: nowrap;
+      animation: float linear infinite;
+    }
+
+    @keyframes float {
+      0% { transform: translateY(0) rotate(var(--r, 0deg)); opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { transform: translateY(-120vh) rotate(var(--r, 0deg)); opacity: 0; }
+    }
+
+    /* ── Section base ── */
+    section { padding: 6rem 4rem; }
+
+    .section-label {
+      font-family: 'Fira Code', monospace;
+      font-size: 0.75rem;
+      color: var(--amber);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+    }
+
+    .section-title {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: clamp(2rem, 4vw, 3rem);
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      margin-bottom: 1rem;
+    }
+
+    .section-desc {
+      color: var(--text-muted);
+      font-size: 1rem;
+      line-height: 1.7;
+      max-width: 480px;
+    }
+
+    /* ── Features ── */
+    #features { background: var(--surface); }
+
+    .features-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4rem;
+      align-items: center;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .feature-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      transition: border-color 0.3s, transform 0.3s;
+    }
+
+    .feature-card:hover {
+      border-color: var(--amber);
+      transform: translateY(-4px);
+    }
+
+    .feature-icon {
+      font-size: 1.6rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .feature-title {
+      font-family: 'Syne', sans-serif;
+      font-weight: 600;
+      font-size: 0.95rem;
+      margin-bottom: 0.4rem;
+    }
+
+    .feature-desc {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    /* ── Usage ── */
+    #usage { max-width: 1200px; margin: 0 auto; }
+
+    .usage-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+      margin-top: 3rem;
+    }
+
+    .tab {
+      font-family: 'Fira Code', monospace;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      padding: 0.4rem 1rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: all 0.2s;
+      background: transparent;
+    }
+
+    .tab.active {
+      background: var(--amber);
+      color: #000;
+      border-color: var(--amber);
+      font-weight: 500;
+    }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .code-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .code-box-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1.25rem;
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .code-box-dots { display: flex; gap: 0.4rem; }
+    .code-box-dots span {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+    }
+    .dot-r { background: #ef4444; }
+    .dot-y { background: #f59e0b; }
+    .dot-g { background: #22c55e; }
+
+    .code-box-lang {
+      font-family: 'Fira Code', monospace;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    .code-box pre {
+      padding: 1.5rem;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.85rem;
+      line-height: 1.8;
+      overflow-x: auto;
+    }
+
+    .hl-tag { color: #f87171; }
+    .hl-attr { color: #60a5fa; }
+    .hl-str { color: #4ade80; }
+    .hl-cmt { color: #4b5563; font-style: italic; }
+    .hl-kw { color: #c084fc; }
+    .hl-amber { color: var(--amber-light); }
+    .hl-muted { color: #6b7280; }
+
+    /* ── Classes showcase ── */
+    #classes {
+      background: var(--surface);
+    }
+
+    .classes-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .classes-header {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4rem;
+      align-items: end;
+      margin-bottom: 3rem;
+    }
+
+    .pill-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      margin-top: 2.5rem;
+    }
+
+    .pill {
+      font-family: 'Fira Code', monospace;
+      font-size: 0.75rem;
+      padding: 0.3rem 0.75rem;
+      border-radius: 99px;
+      border: 1px solid;
+      transition: transform 0.2s;
+      cursor: default;
+    }
+
+    .pill:hover { transform: scale(1.05); }
+
+    .pill-bg { background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.3); color: var(--amber); }
+    .pill-text { background: rgba(96,165,250,0.08); border-color: rgba(96,165,250,0.3); color: #60a5fa; }
+    .pill-layout { background: rgba(74,222,128,0.08); border-color: rgba(74,222,128,0.3); color: #4ade80; }
+    .pill-anim { background: rgba(192,132,252,0.08); border-color: rgba(192,132,252,0.3); color: #c084fc; }
+    .pill-effect { background: rgba(249,115,22,0.08); border-color: rgba(249,115,22,0.3); color: #fb923c; }
+
+    /* ── Live demo ── */
+    #demo {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .demo-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .demo-header {
+      text-align: center;
+      margin-bottom: 3.5rem;
+    }
+
+    .demo-cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+    }
+
+    .demo-card {
+      border-radius: 16px;
+      padding: 2rem;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.3s;
+    }
+
+    .demo-card:hover { transform: translateY(-6px); }
+
+    .demo-card-1 { background: linear-gradient(135deg, #1e3a8a, #6366f1); }
+    .demo-card-2 { background: linear-gradient(135deg, #92400e, #f97316); }
+    .demo-card-3 { background: linear-gradient(135deg, #14532d, #14b8a6); }
+
+    .demo-card h3 {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+
+    .demo-card p { font-size: 0.85rem; opacity: 0.8; line-height: 1.6; margin-bottom: 1.25rem; }
+
+    .demo-badge {
+      display: inline-block;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.7rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 99px;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.25);
+    }
+
+    .demo-btn {
+      display: inline-block;
+      margin-top: 0.75rem;
+      font-size: 0.82rem;
+      font-weight: 500;
+      padding: 0.5rem 1.1rem;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.3);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .demo-btn:hover { background: rgba(255,255,255,0.3); }
+
+    /* ── Install ── */
+    #install {
+      background: var(--surface);
+    }
+
+    .install-inner {
+      max-width: 900px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .install-methods {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin-top: 3rem;
+    }
+
+    .install-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 2rem;
+      text-align: left;
+      transition: border-color 0.3s;
+    }
+
+    .install-card:hover { border-color: var(--amber); }
+
+    .install-card h3 {
+      font-family: 'Syne', sans-serif;
+      font-weight: 600;
+      font-size: 1rem;
+      margin-bottom: 0.3rem;
+    }
+
+    .install-card .hint {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 1.25rem;
+    }
+
+    .copy-row {
+      display: flex;
+      align-items: center;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .copy-row code {
+      font-family: 'Fira Code', monospace;
+      font-size: 0.82rem;
+      color: var(--amber-light);
+      padding: 0.65rem 1rem;
+      flex: 1;
+    }
+
+    .copy-btn {
+      background: var(--amber);
+      color: #000;
+      border: none;
+      padding: 0.65rem 1rem;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .copy-btn:hover { background: var(--amber-light); }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 3rem 4rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    footer .logo {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 1.1rem;
+      color: var(--amber);
+    }
+
+    footer p {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    footer a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.82rem;
+      transition: color 0.2s;
+    }
+    footer a:hover { color: var(--amber); }
+
+    .footer-links { display: flex; gap: 1.5rem; }
+
+    /* ── Stats bar ── */
+    .stats-bar {
+      background: var(--surface-2);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 1.25rem 4rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4rem;
+    }
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.1rem;
+    }
+
+    .stat-num {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 1.6rem;
+      color: var(--amber);
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .stat-divider {
+      width: 1px;
+      height: 2.5rem;
+      background: var(--border);
+    }
+
+    /* ── Animations ── */
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--amber-dim); border-radius: 3px; }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      nav { padding: 1rem 1.5rem; }
+      nav ul { display: none; }
+      section { padding: 4rem 1.5rem; }
+      .features-inner, .classes-header, .install-methods, .demo-cards { grid-template-columns: 1fr; }
+      .features-grid { grid-template-columns: 1fr 1fr; }
+      .stats-bar { padding: 1rem 1.5rem; gap: 2rem; }
+      footer { flex-direction: column; gap: 1rem; text-align: center; }
+    }
+  </style>
 </head>
-
 <body>
-    <div id="app" class="chai-w-screen chai-flex chai-items-center  chai-justify-center">
 
-        <div class="chai-max-w-md chai-w-full ">
-            <div class="chai-bg-red   chai-text-white chai-p-4 chai-rounded-md">
-                Welcome to chaicode-tailwindcss.
-            </div>
-        </div>
+<!-- ── NAV ── -->
+<nav>
+  <a class="nav-logo" href="#">
+    <span class="emoji">🍵</span> chai-tailwind
+  </a>
+  <ul>
+    <li><a href="#features">Features</a></li>
+    <li><a href="#usage">Usage</a></li>
+    <li><a href="#classes">Classes</a></li>
+    <li><a href="#demo">Demo</a></li>
+    <li><a href="#install" class="nav-cta">Install</a></li>
+  </ul>
+</nav>
+
+<!-- ── HERO ── -->
+<section class="hero">
+  <div class="floating-chips" id="chips"></div>
+
+  <div class="hero-badge">
+    <span>●</span> v1.1.0 — Zero dependencies
+  </div>
+
+  <h1>CSS utility classes<br /><span>without the build step.</span></h1>
+
+  <p class="hero-sub">
+    A lightweight runtime CSS engine inspired by Tailwind — powered by pure JavaScript.
+    Drop in a CDN tag and start styling instantly.
+  </p>
+
+  <div class="hero-actions">
+    <a href="#install" class="btn-primary">Get started →</a>
+    <a href="#usage" class="btn-ghost">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17L10 11 4 5M12 19H20"/></svg>
+      View docs
+    </a>
+  </div>
+
+  <div class="hero-code">
+    <div class="code-block">
+      <span class="dim">&lt;</span><span class="tag">script</span>
+      <span class="attr"> src</span><span class="dim">=</span><span class="val">"https://cdn.jsdelivr.net/npm/chai-tailwind@1.1.0/dist/chai-tailwind.js"</span><span class="dim">&gt;&lt;/</span><span class="tag">script</span><span class="dim">&gt;</span>
     </div>
-    <script type="module" src="/src/main.js"></script>
-</body>
+  </div>
+</section>
 
+<!-- ── STATS ── -->
+<div class="stats-bar">
+  <div class="stat">
+    <div class="stat-num">60+</div>
+    <div class="stat-label">Colors</div>
+  </div>
+  <div class="stat-divider"></div>
+  <div class="stat">
+    <div class="stat-num">0</div>
+    <div class="stat-label">Dependencies</div>
+  </div>
+  <div class="stat-divider"></div>
+  <div class="stat">
+    <div class="stat-num">4</div>
+    <div class="stat-label">Animations</div>
+  </div>
+  <div class="stat-divider"></div>
+  <div class="stat">
+    <div class="stat-num">CDN</div>
+    <div class="stat-label">+ npm</div>
+  </div>
+  <div class="stat-divider"></div>
+  <div class="stat">
+    <div class="stat-num">MIT</div>
+    <div class="stat-label">License</div>
+  </div>
+</div>
+
+<!-- ── FEATURES ── -->
+<section id="features">
+  <div class="features-inner">
+    <div>
+      <div class="section-label">// why chai-tailwind</div>
+      <h2 class="section-title">No build tools.<br/>Just utility classes.</h2>
+      <p class="section-desc">
+        Chai Tailwind brings the power of utility-first CSS to any project — no Node.js, no PostCSS, no config files. Just one script tag.
+      </p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <div class="feature-title">Zero build step</div>
+        <div class="feature-desc">Drop a CDN script, start using classes immediately.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🎨</div>
+        <div class="feature-title">Rich color palette</div>
+        <div class="feature-desc">60+ colors with full shade variants from 50 to 900.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🌈</div>
+        <div class="feature-title">Built-in gradients</div>
+        <div class="feature-desc">Beautiful gradient backgrounds with single utility classes.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🎬</div>
+        <div class="feature-title">Animations</div>
+        <div class="feature-desc">Fade, slide, bounce, spin — no keyframes needed.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🖱️</div>
+        <div class="feature-title">Hover utilities</div>
+        <div class="feature-desc">Scale, tilt, color change — all with a single class.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🧊</div>
+        <div class="feature-title">3D tilt cards</div>
+        <div class="feature-desc">Mouse-based interactive 3D perspective effects.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── USAGE ── -->
+<section id="usage">
+  <div class="usage-inner">
+    <div class="section-label">// getting started</div>
+    <h2 class="section-title">Up and running in 30 seconds.</h2>
+
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('cdn')">CDN</button>
+      <button class="tab" onclick="switchTab('npm')">npm</button>
+      <button class="tab" onclick="switchTab('example')">Example</button>
+    </div>
+
+    <div class="tab-content active" id="tab-cdn">
+      <div class="code-box">
+        <div class="code-box-header">
+          <div class="code-box-dots"><span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span></div>
+          <div class="code-box-lang">index.html</div>
+        </div>
+        <pre><span class="hl-muted">&lt;!DOCTYPE html&gt;</span>
+<span class="hl-tag">&lt;html&gt;</span>
+<span class="hl-tag">&lt;head&gt;</span>
+  <span class="hl-muted">&lt;!-- Add just this one line --&gt;</span>
+  <span class="hl-tag">&lt;script</span> <span class="hl-attr">src</span>=<span class="hl-str">"https://cdn.jsdelivr.net/npm/chai-tailwind@1.1.0/dist/chai-tailwind.js"</span><span class="hl-tag">&gt;&lt;/script&gt;</span>
+<span class="hl-tag">&lt;/head&gt;</span>
+<span class="hl-tag">&lt;body&gt;</span>
+  <span class="hl-tag">&lt;div</span> <span class="hl-attr">class</span>=<span class="hl-str">"chai-bg-amber chai-text-black chai-p-4 chai-rounded-lg"</span><span class="hl-tag">&gt;</span>
+    Hello World 🚀
+  <span class="hl-tag">&lt;/div&gt;</span>
+<span class="hl-tag">&lt;/body&gt;</span>
+<span class="hl-tag">&lt;/html&gt;</span></pre>
+      </div>
+    </div>
+
+    <div class="tab-content" id="tab-npm">
+      <div class="code-box">
+        <div class="code-box-header">
+          <div class="code-box-dots"><span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span></div>
+          <div class="code-box-lang">terminal + JS</div>
+        </div>
+        <pre><span class="hl-muted"># Install via npm</span>
+<span class="hl-amber">npm install chai-tailwind</span>
+
+<span class="hl-muted"># Then import in your entry file</span>
+<span class="hl-kw">import</span> <span class="hl-str">"chai-tailwind"</span>;
+
+<span class="hl-muted">// That's it. Styles initialize automatically.</span></pre>
+      </div>
+    </div>
+
+    <div class="tab-content" id="tab-example">
+      <div class="code-box">
+        <div class="code-box-header">
+          <div class="code-box-dots"><span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span></div>
+          <div class="code-box-lang">example.html</div>
+        </div>
+        <pre><span class="hl-muted">&lt;!-- Gradient button --&gt;</span>
+<span class="hl-tag">&lt;button</span> <span class="hl-attr">class</span>=<span class="hl-str">"
+  chai-bg-gradient-to-r-blue-purple
+  chai-text-white chai-p-4
+  chai-rounded-full chai-shadow-md
+  chai-hover-scale chai-transition
+"</span><span class="hl-tag">&gt;</span>Click me 🚀<span class="hl-tag">&lt;/button&gt;</span>
+
+<span class="hl-muted">&lt;!-- Shade-based card --&gt;</span>
+<span class="hl-tag">&lt;div</span> <span class="hl-attr">class</span>=<span class="hl-str">"chai-bg-purple-100 chai-border
+  chai-border-purple-500 chai-rounded-xl chai-p-6"</span><span class="hl-tag">&gt;</span>
+  <span class="hl-tag">&lt;h2</span> <span class="hl-attr">class</span>=<span class="hl-str">"chai-text-purple-600 chai-font-bold"</span><span class="hl-tag">&gt;</span>
+    Card Title
+  <span class="hl-tag">&lt;/h2&gt;</span>
+<span class="hl-tag">&lt;/div&gt;</span>
+
+<span class="hl-muted">&lt;!-- Animated badge --&gt;</span>
+<span class="hl-tag">&lt;span</span> <span class="hl-attr">class</span>=<span class="hl-str">"chai-bg-amber chai-text-black
+  chai-p-2 chai-rounded-full chai-animate-bounce"</span><span class="hl-tag">&gt;</span>
+  New ✨
+<span class="hl-tag">&lt;/span&gt;</span></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CLASSES ── -->
+<section id="classes">
+  <div class="classes-inner">
+    <div class="classes-header">
+      <div>
+        <div class="section-label">// utility classes</div>
+        <h2 class="section-title">Every class you need, prefixed with <span style="color:var(--amber)">chai-</span></h2>
+      </div>
+      <div>
+        <p class="section-desc">All utility classes follow a predictable naming convention. Every class is prefixed with <code style="font-family:Fira Code,monospace;color:var(--amber-light)">chai-</code> to avoid conflicts with existing stylesheets.</p>
+      </div>
+    </div>
+
+    <div class="pill-grid">
+      <!-- BG -->
+      <span class="pill pill-bg">chai-bg-amber</span>
+      <span class="pill pill-bg">chai-bg-red-500</span>
+      <span class="pill pill-bg">chai-bg-blue-700</span>
+      <span class="pill pill-bg">chai-bg-purple-100</span>
+      <span class="pill pill-bg">chai-bg-gradient-to-r-blue-purple</span>
+      <span class="pill pill-bg">chai-bg-gradient-to-br-sky-blue</span>
+      <span class="pill pill-bg">chai-bg-teal</span>
+      <span class="pill pill-bg">chai-bg-emerald</span>
+      <!-- Text -->
+      <span class="pill pill-text">chai-text-white</span>
+      <span class="pill pill-text">chai-text-gray-600</span>
+      <span class="pill pill-text">chai-text-purple-400</span>
+      <span class="pill pill-text">chai-text-xl</span>
+      <span class="pill pill-text">chai-font-bold</span>
+      <span class="pill pill-text">chai-text-center</span>
+      <!-- Layout -->
+      <span class="pill pill-layout">chai-flex</span>
+      <span class="pill pill-layout">chai-flex-col</span>
+      <span class="pill pill-layout">chai-items-center</span>
+      <span class="pill pill-layout">chai-justify-between</span>
+      <span class="pill pill-layout">chai-gap-4</span>
+      <span class="pill pill-layout">chai-w-full</span>
+      <span class="pill pill-layout">chai-h-screen</span>
+      <span class="pill pill-layout">chai-max-w-lg</span>
+      <span class="pill pill-layout">chai-p-6</span>
+      <span class="pill pill-layout">chai-m-auto</span>
+      <!-- Animations -->
+      <span class="pill pill-anim">chai-animate-fade-in</span>
+      <span class="pill pill-anim">chai-animate-slide-up</span>
+      <span class="pill pill-anim">chai-animate-bounce</span>
+      <span class="pill pill-anim">chai-animate-spin</span>
+      <!-- Effects -->
+      <span class="pill pill-effect">chai-hover-scale</span>
+      <span class="pill pill-effect">chai-hover-tilt-3d</span>
+      <span class="pill pill-effect">chai-hover-bg-blue</span>
+      <span class="pill pill-effect">chai-shadow-lg</span>
+      <span class="pill pill-effect">chai-rounded-full</span>
+      <span class="pill pill-effect">chai-transition</span>
+      <span class="pill pill-effect">chai-opacity-75</span>
+      <span class="pill pill-effect">chai-border</span>
+      <span class="pill pill-effect">chai-border-amber</span>
+    </div>
+  </div>
+</section>
+
+<!-- ── DEMO ── -->
+<section id="demo">
+  <div class="demo-inner">
+    <div class="demo-header">
+      <div class="section-label">// live examples</div>
+      <h2 class="section-title">See it in action.</h2>
+    </div>
+
+    <div class="demo-cards">
+      <div class="demo-card demo-card-1">
+        <div><span class="demo-badge">chai-bg-gradient-to-r-blue-purple</span></div>
+        <h3 style="margin-top:1rem">Gradient Card</h3>
+        <p>Built entirely with utility classes. No custom CSS required — just compose and go.</p>
+        <div class="demo-btn">Hover me ✨</div>
+      </div>
+      <div class="demo-card demo-card-2">
+        <div><span class="demo-badge">chai-bg-gradient-to-r-red-orange</span></div>
+        <h3 style="margin-top:1rem">Warm Tones</h3>
+        <p>Use shade variants to build depth. Each color from 50 to 900 is available as a class.</p>
+        <div class="demo-btn">Explore →</div>
+      </div>
+      <div class="demo-card demo-card-3">
+        <div><span class="demo-badge">chai-bg-gradient-to-r-green-teal</span></div>
+        <h3 style="margin-top:1rem">Green & Teal</h3>
+        <p>Mix gradients, borders, shadows, and hover effects for production-ready components.</p>
+        <div class="demo-btn">Try it →</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── INSTALL ── -->
+<section id="install">
+  <div class="install-inner">
+    <div class="section-label">// installation</div>
+    <h2 class="section-title">Ready in one command.</h2>
+    <p class="section-desc" style="margin:0 auto;text-align:center">
+      Install via npm or drop a script tag. Either way, you're styling in seconds.
+    </p>
+
+    <div class="install-methods">
+      <div class="install-card">
+        <h3>📦 npm</h3>
+        <p class="hint">For bundler-based projects (Vite, Webpack, etc.)</p>
+        <div class="copy-row">
+          <code>npm install chai-tailwind</code>
+          <button class="copy-btn" onclick="copyText('npm install chai-tailwind', this)">copy</button>
+        </div>
+        <p style="font-size:0.78rem;color:var(--text-muted);margin-top:0.75rem">Then: <code style="font-family:Fira Code,monospace;color:var(--amber)">import "chai-tailwind"</code></p>
+      </div>
+      <div class="install-card">
+        <h3>🌐 CDN</h3>
+        <p class="hint">For plain HTML — paste in &lt;head&gt;</p>
+        <div class="copy-row">
+          <code style="font-size:0.72rem">cdn.jsdelivr.net/npm/chai-tailwind@1.1.0/...</code>
+          <button class="copy-btn" onclick="copyText('https://cdn.jsdelivr.net/npm/chai-tailwind@1.1.0/dist/chai-tailwind.js', this)">copy</button>
+        </div>
+        <p style="font-size:0.78rem;color:var(--text-muted);margin-top:0.75rem">No build step. Works in any browser.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div class="logo">🍵 chai-tailwind</div>
+  <p>MIT © 2026 Mohammad Saif</p>
+  <div class="footer-links">
+    <a href="https://www.npmjs.com/package/chai-tailwind" target="_blank">npm</a>
+    <a href="https://cdn.jsdelivr.net/npm/chai-tailwind@1.1.0/" target="_blank">CDN</a>
+    <a href="#features">Docs</a>
+  </div>
+</footer>
+
+<script>
+  // ── Floating chips
+  const classNames = [
+    'chai-bg-amber','chai-text-white','chai-p-4','chai-rounded-lg',
+    'chai-flex','chai-shadow-md','chai-hover-scale','chai-animate-bounce',
+    'chai-border','chai-gap-4','chai-text-xl','chai-font-bold',
+    'chai-bg-blue-500','chai-rounded-full','chai-transition',
+    'chai-animate-spin','chai-hover-tilt-3d','chai-bg-gradient-to-r-blue-purple'
+  ];
+
+  const container = document.getElementById('chips');
+  classNames.forEach((name, i) => {
+    const el = document.createElement('div');
+    el.className = 'chip';
+    el.textContent = name;
+    const left = 5 + Math.random() * 90;
+    const dur = 12 + Math.random() * 14;
+    const delay = Math.random() * 10;
+    const rot = (Math.random() - 0.5) * 20;
+    el.style.cssText = `left:${left}%;bottom:-3rem;animation-duration:${dur}s;animation-delay:${delay}s;--r:${rot}deg`;
+    container.appendChild(el);
+  });
+
+  // ── Tabs
+  function switchTab(id) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + id).classList.add('active');
+    event.target.classList.add('active');
+  }
+
+  // ── Copy
+  function copyText(text, btn) {
+    navigator.clipboard.writeText(text).then(() => {
+      const orig = btn.textContent;
+      btn.textContent = '✓ copied';
+      setTimeout(() => btn.textContent = orig, 1800);
+    });
+  }
+</script>
+
+</body>
 </html>
